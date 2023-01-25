@@ -8,6 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(patchwork)
 ```
 
 ```{r setup}
@@ -48,16 +49,20 @@ e_reverse_scored <- list(c(6, 7, 8, 9, 10),c(6, 7, 8, 9, 10),c(6, 7, 8, 9, 10))
 e_rev_factors <- c("anx", "fear", "sen")
 
 h1_strength <- hexaco1 %>%
-  select(p_id, sex, ethnicity, grip, chest)
+  select(p_id, sex, grip, chest) %>%
+  na.omit()
+h1_strength_eth <- hexaco1 %>%
+  select(p_id, sex, ethnicity, grip, chest) %>%
+  na.omit()
 
 h2_strength <- hexaco2 %>%
-  select(p_id, sex, grip, chest)
+  select(p_id, sex, grip, chest) %>%
+  na.omit()
 
 e_strength <- rbind(h1_strength, h2_strength)
 
 h1_score <- hexaco1 %>%
   select(-age, -sex, -ethnicity, -grip, -chest)
-
 h2_score <- hexaco2 %>%
   select(-sex, -grip, -chest)
 
@@ -82,7 +87,7 @@ e_mean_score_eth <- h1_score %>%
   summarise(mean = mean(new_score))
 
 e_score_strength <- inner_join(e_strength, e_mean_score, by = c("p_id")) %>% na.omit()
-e_score_strength_eth <- inner_join(h1_strength, e_mean_score_eth, by = c("p_id")) %>% na.omit()
+e_score_strength_eth <- inner_join(h1_strength_eth, e_mean_score_eth, by = c("p_id")) %>% na.omit()
 
 # chest and grip strength
 e_g_plot <- ggplot(e_score_strength, aes(mean, grip, colour=sex))+
@@ -101,13 +106,10 @@ e_c_plot <- ggplot(e_score_strength, aes(mean, chest, colour=sex))+
   facet_wrap(~sex) +
   theme(legend.position = "none")
 
-library(patchwork)
-
 e_g_plot / e_c_plot
 
 cor.test(e_score_strength$mean, e_score_strength$grip, method = "pearson", alternative = "two.sided")
 cor.test(e_score_strength$mean, e_score_strength$chest, method = "pearson", alternative = "two.sided")
-
 ```
 ```{r h-100, cache=TRUE}
 # items
@@ -119,12 +121,17 @@ cor.test(e_score_strength$mean, e_score_strength$chest, method = "pearson", alte
 h_rev_score <- c("hex_29", "hex_77", "hex_35", "hex_59", "hex_41", "hex_89", "hex_95")
 
 h3_strength <- hexaco3 %>%
+  select(p_id, sex, grip)
+h3_strength_eth <- hexaco3 %>%
   select(p_id, sex, ethnicity, grip)
 
 h4_strength <- hexaco4 %>%
   select(p_id, sex, grip)
 
 h5_strength <- hexaco5 %>%
+  select(p_id, sex, grip) %>%
+  transform(p_id = as.numeric(p_id))
+h5_strength_eth <- hexaco5 %>%
   select(p_id, sex, ethnicity, grip) %>%
   transform(p_id = as.numeric(p_id))
 
@@ -164,10 +171,9 @@ h_mean_score_eth <- h_score_eth %>%
   na.omit() %>%
   transform(p_id = as.numeric(p_id))
 
-h_score_strength_eth <- rbind(h3_strength, h5_strength) %>%
+h_score_strength_eth <- rbind(h3_strength_eth, h5_strength_eth) %>%
   inner_join(h_mean_score_eth)
 
-# strength predicted by mean score and sex
 ggplot(h_score_strength, aes(mean, grip, colour = sex))+
   geom_point(alpha=.5)+
   geom_smooth(method = "lm", se = FALSE)+
@@ -177,7 +183,6 @@ ggplot(h_score_strength, aes(mean, grip, colour = sex))+
   theme(legend.position = "none")
 
 cor.test(h_score_strength$mean, h_score_strength$grip, method = "pearson", alternative = "two.sided")
-
 ```
 
 ```{r model comparison}
