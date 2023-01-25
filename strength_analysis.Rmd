@@ -48,7 +48,7 @@ e_reverse_scored <- list(c(6, 7, 8, 9, 10),c(6, 7, 8, 9, 10),c(6, 7, 8, 9, 10))
 e_rev_factors <- c("anx", "fear", "sen")
 
 h1_strength <- hexaco1 %>%
-  select(p_id, sex, grip, chest)
+  select(p_id, sex, ethnicity, grip, chest)
 
 h2_strength <- hexaco2 %>%
   select(p_id, sex, grip, chest)
@@ -72,7 +72,17 @@ e_mean_score <- e_score %>%
   group_by(p_id) %>%
   summarise(mean = mean(new_score))
 
+e_mean_score_eth <- h1_score %>%
+  pivot_longer(cols = -p_id) %>%
+  rename(score = value) %>%
+  separate(name, into = c('scale', 'factor', 'item'), sep = "_") %>%
+  select(-scale) %>%
+  mutate(new_score = ifelse(factor %in% e_rev_factors[1] & item %in% e_reverse_scored[[1]], 7-score, score)) %>%
+  group_by(p_id) %>%
+  summarise(mean = mean(new_score))
+
 e_score_strength <- inner_join(e_strength, e_mean_score, by = c("p_id")) %>% na.omit()
+e_score_strength_eth <- inner_join(h1_strength, e_mean_score_eth, by = c("p_id")) %>% na.omit()
 
 # chest and grip strength
 e_g_plot <- ggplot(e_score_strength, aes(mean, grip, colour=sex))+
@@ -109,13 +119,14 @@ cor.test(e_score_strength$mean, e_score_strength$chest, method = "pearson", alte
 h_rev_score <- c("hex_29", "hex_77", "hex_35", "hex_59", "hex_41", "hex_89", "hex_95")
 
 h3_strength <- hexaco3 %>%
-  select(p_id, sex, grip)
+  select(p_id, sex, ethnicity, grip)
 
 h4_strength <- hexaco4 %>%
   select(p_id, sex, grip)
 
 h5_strength <- hexaco5 %>%
-  select(p_id, sex, grip)
+  select(p_id, sex, ethnicity, grip) %>%
+  transform(p_id = as.numeric(p_id))
 
 h_strength <- rbind(h3_strength, h4_strength) %>%
   rbind(h5_strength) %>%
@@ -126,9 +137,12 @@ h3_score <- hexaco3 %>%
 h4_score <- hexaco4 %>%
   select(-sex, -age, -grip)
 h5_score <- hexaco5 %>%
-  select(-age, -sex, -ethnicity, -grip)
+  select(-age, -sex, -ethnicity, -grip) %>%
+  transform(p_id = as.numeric(p_id))
 h_score <- rbind(h3_score, h4_score) %>%
   rbind(h5_score)
+h_score_eth <- rbind(h3_score, h5_score)
+
 
 h_mean_score <- h_score %>%
   pivot_longer(cols= -p_id) %>%
@@ -140,6 +154,18 @@ h_mean_score <- h_score %>%
   transform(p_id = as.numeric(p_id))
 
 h_score_strength <- inner_join(h_mean_score, h_strength)
+
+h_mean_score_eth <- h_score_eth %>%
+  pivot_longer(cols= -p_id) %>%
+  rename(score = value, item = name) %>%
+  mutate(new_score = ifelse(item %in% h_rev_score[1], 5-score, score)) %>%
+  group_by(p_id) %>%
+  summarise(mean = mean(new_score)) %>%
+  na.omit() %>%
+  transform(p_id = as.numeric(p_id))
+
+h_score_strength_eth <- rbind(h3_strength, h5_strength) %>%
+  inner_join(h_mean_score_eth)
 
 # strength predicted by mean score and sex
 ggplot(h_score_strength, aes(mean, grip, colour = sex))+
@@ -163,7 +189,6 @@ summary(e_mod3)
 
 anova(e_mod1, e_mod2)
 anova(e_mod2, e_mod3)
-## e_mod2 is significantly better
 
 e_mod2.aov <- aov(e_mod2)
 summary(e_mod2.aov)
@@ -173,12 +198,23 @@ summary(e_mod2.aov)
 h_mod1 <- lm(grip ~ mean, h_score_strength)
 h_mod2 <- lm(grip ~ mean + sex, h_score_strength)
 h_mod3 <- lm(grip ~ mean + sex + mean:sex, h_score_strength)
+h_mod4 <- lm(grip ~ mean + sex + ethnicity, h_score_strength_eth)
 summary(h_mod3)
 
 anova(h_mod1, h_mod2)
 anova(h_mod2, h_mod3)
-## h_mod2 is significantly better
 
 h_mod2.aov <- aov(h_mod2)
 summary(h_mod2.aov)
+
+# Ethnicity included
+e_mod4 <- lm(grip ~ mean + sex, e_score_strength_eth)
+e_mod5 <- lm(grip ~ mean + sex + ethnicity, e_score_strength_eth)
+
+anova(e_mod4, e_mod5)
+
+h_mod4 <- lm(grip ~ mean + sex, h_score_strength_eth)
+h_mod5 <- lm(grip ~ mean + sex + ethnicity, h_score_strength_eth)
+
+anova(h_mod4, h_mod5)
 ```
