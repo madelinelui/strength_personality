@@ -1,0 +1,184 @@
+---
+title: "Physical strength and personality"
+author: "Madeline Lui"
+date: "2023-01-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+```{r setup}
+hexaco1 <- read_csv("Sample_1.csv") %>%
+  rename(sex = female)
+hexaco2 <- read_csv("Sample_2.csv") %>%
+  rename(sex = female)
+hexaco3 <- read_csv("Sample_3.csv") %>%
+  rename(sex = female) %>%
+  separate(p_id, into = c("a", "p_id"), 3) %>%
+  select(-a)
+
+hexaco3$p_id[hexaco3$p_id == "L333"] <- 333
+hexaco3$p_id[hexaco3$p_id == "L364"] <- 364
+
+hexaco3 <- hexaco3 %>%
+  transform(p_id = as.numeric(p_id))
+
+hexaco4 <- read_csv("Sample_4.csv") %>%
+  rename(sex = female)
+hexaco5 <- read_csv("Sample_5_corrected.csv") %>%
+  rename(sex = female)
+```
+
+```{r e_keying, cache=TRUE}
+## regular = negative valence
+## reversed = positive valence
+#hexaco 1, 2
+# anxiety -> c(1, 2, 3, 4, 5, -6, -7, -8, -9, -10)
+# emo dep -> {all regular}
+# fearfulness -> c(1, 2, 3, 4, 5, -6, -7, -8, -9, -10)
+# sentimentality -> c(1, 2, 3, 4, 5, -6, -7, -8, -9, 10)
+
+## e_ = IPIP scale (h1, h2)
+## h_ = 100-item scale (h3, h4, h5)
+
+e_reverse_scored <- list(c(6, 7, 8, 9, 10),c(6, 7, 8, 9, 10),c(6, 7, 8, 9, 10))
+e_rev_factors <- c("anx", "fear", "sen")
+
+h1_strength <- hexaco1 %>%
+  select(p_id, sex, grip, chest)
+
+h2_strength <- hexaco2 %>%
+  select(p_id, sex, grip, chest)
+
+e_strength <- rbind(h1_strength, h2_strength)
+
+h1_score <- hexaco1 %>%
+  select(-age, -sex, -ethnicity, -grip, -chest)
+
+h2_score <- hexaco2 %>%
+  select(-sex, -grip, -chest)
+
+e_score <- rbind(h1_score, h2_score)
+
+e_mean_score <- e_score %>%
+  pivot_longer(cols = -p_id) %>%
+  rename(score = value) %>%
+  separate(name, into = c('scale', 'factor', 'item'), sep = "_") %>%
+  select(-scale) %>%
+  mutate(new_score = ifelse(factor %in% e_rev_factors[1] & item %in% e_reverse_scored[[1]], 7-score, score)) %>%
+  group_by(p_id) %>%
+  summarise(mean = mean(new_score))
+
+e_score_strength <- inner_join(e_strength, e_mean_score, by = c("p_id")) %>% na.omit()
+
+# chest and grip strength
+e_g_plot <- ggplot(e_score_strength, aes(mean, grip, colour=sex))+
+  geom_point(alpha=.5)+
+  labs(x="Mean Score of Fearful Personality Traits", y="Grip Strength")+
+  theme_minimal()+
+  geom_smooth(method=lm, se = FALSE) +
+  facet_wrap(~sex) +
+  theme(legend.position = "none")
+
+e_c_plot <- ggplot(e_score_strength, aes(mean, chest, colour=sex))+
+  geom_point(alpha=.5)+
+  labs(x="Mean Score of Fearful Personality Traits", y="Chest Strength")+
+  theme_minimal()+
+  geom_smooth(method=lm, se = FALSE)+
+  facet_wrap(~sex) +
+  theme(legend.position = "none")
+
+library(patchwork)
+
+e_g_plot / e_c_plot
+
+cor.test(e_score_strength$mean, e_score_strength$grip, method = "pearson", alternative = "two.sided")
+cor.test(e_score_strength$mean, e_score_strength$chest, method = "pearson", alternative = "two.sided")
+
+```
+```{r h-100, cache=TRUE}
+# items
+## fear -> c(5, -29, 53, -77)
+## anxiety -> c(11, -35, -59, 83)
+## dependence -> c(17, -41, 65, -89)
+## sentimentality -> c(23, 47, 71, -95)
+
+h_rev_score <- c("hex_29", "hex_77", "hex_35", "hex_59", "hex_41", "hex_89", "hex_95")
+
+h3_strength <- hexaco3 %>%
+  select(p_id, sex, grip)
+
+h4_strength <- hexaco4 %>%
+  select(p_id, sex, grip)
+
+h5_strength <- hexaco5 %>%
+  select(p_id, sex, grip)
+
+h_strength <- rbind(h3_strength, h4_strength) %>%
+  rbind(h5_strength) %>%
+  transform(p_id = as.numeric(p_id))
+
+h3_score <- hexaco3 %>%
+  select(-age, -sex, -ethnicity, -grip, -chest)
+h4_score <- hexaco4 %>%
+  select(-sex, -age, -grip)
+h5_score <- hexaco5 %>%
+  select(-age, -sex, -ethnicity, -grip)
+h_score <- rbind(h3_score, h4_score) %>%
+  rbind(h5_score)
+
+h_mean_score <- h_score %>%
+  pivot_longer(cols= -p_id) %>%
+  rename(score = value, item = name) %>%
+  mutate(new_score = ifelse(item %in% h_rev_score[1], 5-score, score)) %>%
+  group_by(p_id) %>%
+  summarise(mean = mean(new_score)) %>%
+  na.omit() %>%
+  transform(p_id = as.numeric(p_id))
+
+h_score_strength <- inner_join(h_mean_score, h_strength)
+
+# strength predicted by mean score and sex
+ggplot(h_score_strength, aes(mean, grip, colour = sex))+
+  geom_point(alpha=.5)+
+  geom_smooth(method = "lm", se = FALSE)+
+  labs(x="Mean Score of Fearful Personality Traits", y="Grip Strength")+
+  facet_wrap(~ sex) +
+  theme_minimal()+
+  theme(legend.position = "none")
+
+cor.test(h_score_strength$mean, h_score_strength$grip, method = "pearson", alternative = "two.sided")
+
+```
+
+```{r model comparison}
+# HEXACO IPIP scale
+e_mod1 <- lm(grip ~ mean, e_score_strength)
+e_mod2 <- lm(grip ~ mean + sex, e_score_strength)
+e_mod3 <- lm(grip ~ mean + sex + mean:sex, e_score_strength)
+summary(e_mod3)
+
+anova(e_mod1, e_mod2)
+anova(e_mod2, e_mod3)
+## e_mod2 is significantly better
+
+e_mod2.aov <- aov(e_mod2)
+summary(e_mod2.aov)
+
+
+# HEXACO-100 item scale
+h_mod1 <- lm(grip ~ mean, h_score_strength)
+h_mod2 <- lm(grip ~ mean + sex, h_score_strength)
+h_mod3 <- lm(grip ~ mean + sex + mean:sex, h_score_strength)
+summary(h_mod3)
+
+anova(h_mod1, h_mod2)
+anova(h_mod2, h_mod3)
+## h_mod2 is significantly better
+
+h_mod2.aov <- aov(h_mod2)
+summary(h_mod2.aov)
+```
