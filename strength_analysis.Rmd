@@ -212,14 +212,18 @@ anova(h_mod2, h_mod3)
 h_mod2.aov <- aov(h_mod2)
 summary(h_mod2.aov)
 
+## mod3 with interaction is not better than mod2
+
 # Ethnicity included
 e_mod4 <- lm(grip ~ mean + sex, e_score_strength_eth)
 e_mod5 <- lm(grip ~ mean + sex + ethnicity, e_score_strength_eth)
 
 anova(e_mod4, e_mod5)
+## including ethnicity does not improve the model using the HEXACO IPIP scale
 
 h_mod4 <- lm(grip ~ mean + sex, h_score_strength_eth)
 h_mod5 <- lm(grip ~ mean + sex + ethnicity, h_score_strength_eth)
 
 anova(h_mod4, h_mod5)
+## ethnicity is statistically significant in mod5 using the HEXACO-100 scale
 ```
